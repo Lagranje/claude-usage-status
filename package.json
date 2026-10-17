@@ -1,0 +1,52 @@
+{
+  "name": "claude-usage-status",
+  "displayName": "Claude Usage Status",
+  "description": "Unofficial: Claude plan usage (5-hour and weekly) in the VS Code status bar",
+  "version": "0.1.8",
+  "publisher": "lagranje",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeUsageStatus.refresh",
+        "title": "Claude Usage: Refresh"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Usage Status",
+      "properties": {
+        "claudeUsageStatus.configDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Folder that holds Claude Code's `.credentials.json` (Windows/Linux login). Empty uses `$CLAUDE_CONFIG_DIR`, else `~/.claude`. Supports `~`."
+        }
+      }
+    }
+  },
+  "icon": "icon.png",
+  "license": "MIT",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "usage",
+    "status bar",
+    "rate limit"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lagranje/claude-usage-status.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Lagranje/claude-usage-status/issues"
+  },
+  "homepage": "https://github.com/Lagranje/claude-usage-status#readme"
+}
