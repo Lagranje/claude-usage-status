@@ -4,9 +4,9 @@ VS Code extension that shows your Claude plan usage in the status bar.
 
 > **Unofficial.** Not affiliated with, endorsed by, or sponsored by Anthropic. "Claude" is a trademark of Anthropic, PBC.
 
-```
-〜 Claude: 38% | 61%
-```
+<img src="images/popup.png" alt="Usage popup" width="300">
+
+Status bar: `Claude: 25% | 27%`
 
 - **First number** — current 5-hour session window
 - **Second number** — weekly window
@@ -44,6 +44,7 @@ The credentials file is checked on every OS; if both it and the Keychain have a 
 
 | Setting | Default | Description |
 | --- | --- | --- |
+| `claudeUsageStatus.alignment` | `left` | Status bar side: `left` or `right`. Sits at the inner edge, nearest the centre. |
 | `claudeUsageStatus.configDir` | `""` | Folder that holds `.credentials.json`. Supports `~`. |
 
 The folder is resolved in this order:

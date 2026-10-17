@@ -15,20 +15,25 @@ let isLoading = false;
 let lastUsage;
 let lastFetchAt = 0;
 let blockedUntil = 0;
+let updatedAt = 0;
+let plan;
 let state;
 
 function activate(context) {
   state = context.globalState;
-  ({ lastUsage, lastFetchAt = 0, blockedUntil = 0 } = state.get('cache', {}));
-  item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
-  item.command = 'claudeUsageStatus.refresh';
-  item.text = '$(pulse) Claude: …';
-  item.show();
+  ({ lastUsage, lastFetchAt = 0, blockedUntil = 0, updatedAt = 0, plan } = state.get('cache', {}));
+  createItem();
 
   context.subscriptions.push(
-    item,
+    { dispose: () => item.dispose() },
     vscode.commands.registerCommand('claudeUsageStatus.refresh', refresh),
-    vscode.workspace.onDidChangeConfiguration(e => e.affectsConfiguration('claudeUsageStatus') && refresh()),
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('claudeUsageStatus.alignment')) {
+        createItem();
+        render(lastUsage);
+      }
+      if (e.affectsConfiguration('claudeUsageStatus.configDir')) refresh();
+    }),
     vscode.window.onDidChangeWindowState(s => s.focused && Date.now() - lastFetchAt > MIN_GAP_MS && refresh()),
     { dispose: () => clearInterval(timer) },
   );
@@ -49,12 +54,13 @@ async function refresh() {
 
   try {
     lastUsage = await fetchUsage(await readToken());
+    updatedAt = Date.now();
     render(lastUsage);
   } catch (err) {
     render(lastUsage, err.message);
   } finally {
     isLoading = false;
-    state.update('cache', { lastUsage, lastFetchAt, blockedUntil });
+    state.update('cache', { lastUsage, lastFetchAt, blockedUntil, updatedAt, plan });
   }
 }
 
@@ -65,6 +71,7 @@ async function readToken() {
 
   const freshest = found.reduce((a, b) => (b.expiresAt > a.expiresAt ? b : a));
   if (freshest.expiresAt < Date.now()) throw new Error('token expired, use Claude Code to renew it');
+  plan = freshest.plan;
   return freshest.accessToken;
 }
 
@@ -91,10 +98,18 @@ function configDir() {
   return dir.replace(/^~(?=$|[\\/])/, os.homedir());
 }
 
+// "default_claude_max_5x" -> "Max 5x"; generic tier falls back to subscription
+function planName({ rateLimitTier, subscriptionType }) {
+  const tier = rateLimitTier?.replace(/^default_claude_/i, '');
+  const raw = tier && tier.toLowerCase() !== 'ai' ? tier : subscriptionType;
+  return raw?.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
 function toLogin(json) {
   try {
     const oauth = JSON.parse(json.trim()).claudeAiOauth;
-    return oauth?.accessToken ? { accessToken: oauth.accessToken, expiresAt: Number(oauth.expiresAt) || 0 } : null;
+    if (!oauth?.accessToken) return null;
+    return { accessToken: oauth.accessToken, expiresAt: Number(oauth.expiresAt) || 0, plan: planName(oauth) };
   } catch {
     return null;
   }
@@ -124,9 +139,11 @@ async function fetchUsage(token) {
 }
 
 function render(usage, error) {
+  // Rate limits are transient; keep showing last values silently
+  if (error?.startsWith('rate limited')) error = undefined;
   if (!usage) {
     item.text = '$(pulse) Claude: —';
-    item.tooltip = `Claude usage unavailable: ${error}`;
+    item.tooltip = error ? `Claude usage unavailable: ${error}` : 'Waiting for usage data…';
     item.backgroundColor = undefined;
     return;
   }
@@ -147,25 +164,27 @@ function render(usage, error) {
     ['Weekly Sonnet', usage.seven_day_sonnet],
   ].filter(([, w]) => w);
 
+  const updated = updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString('en-GB')} · ` : '';
   const tip = new vscode.MarkdownString(
-    `${dim('<b>USAGE</b>')}\n\n` +
+    `**Claude Code usage**${plan ? ` ${dim(`· ${plan}`)}` : ''}\n\n---\n\n` +
     rows.map(([name, w]) => usageBlock(name, w)).join('\n\n') +
     (error ? `\n\n${dim(`⚠ ${error}, showing last values`)}` : '') +
-    `\n\n---\n\n${dim('Click to refresh')}`,
+    `\n\n---\n\n${dim(`${updated}click to refresh now`)}`,
   );
   tip.supportHtml = true;
   item.tooltip = tip;
 }
 
 const BAR_WIDTH = 16;
+const FILL = '#FFD866';
+const TRACK = '#2D2D2D';
 
 function usageBlock(name, w) {
   const filled = Math.min(BAR_WIDTH, Math.round((w.utilization / 100) * BAR_WIDTH));
-  const color = w.utilization >= ERROR_AT ? '#F14C4C' : w.utilization >= WARN_AT ? '#FF8A3D' : '#FFD866';
   // Heading enlarges the block glyphs into a thicker bar
   const bar =
-    `### <span style="color:${color};">${'▃'.repeat(filled)}</span>` +
-    `<span style="color:#3C3C3C;">${'▃'.repeat(BAR_WIDTH - filled)}</span>`;
+    `### <span style="color:${FILL};">${'▃'.repeat(filled)}</span>` +
+    `<span style="color:${TRACK};">${'▃'.repeat(BAR_WIDTH - filled)}</span>`;
   const resets = w.resets_at ? `\n\n${dim(`Resets ${resetsIn(w.resets_at, true)}`)}` : '';
   return `${name} &nbsp; <b>${pct(w)}</b>\n${bar}${resets}`;
 }
@@ -187,6 +206,18 @@ function resetsIn(iso, isShort = false) {
   // Short form rounds to the largest unit, like Claude's /usage
   if (isShort) return 'in ' + (d ? `${d}d` : h ? `${h}h` : `${m}m`);
   return 'in ' + (d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`);
+}
+
+// Alignment is fixed at creation, so changing it recreates the item
+function createItem() {
+  item?.dispose();
+  const isRight = vscode.workspace.getConfiguration('claudeUsageStatus').get('alignment') === 'right';
+  item = isRight
+    ? vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000)
+    : vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, -1000);
+  item.command = 'claudeUsageStatus.refresh';
+  item.text = '$(pulse) Claude: …';
+  item.show();
 }
 
 function deactivate() {

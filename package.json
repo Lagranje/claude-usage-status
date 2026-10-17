@@ -2,7 +2,7 @@
   "name": "claude-usage-status",
   "displayName": "Claude Usage Status",
   "description": "Unofficial: Claude plan usage (5-hour and weekly) in the VS Code status bar",
-  "version": "0.1.8",
+  "version": "0.1.17",
   "publisher": "lagranje",
   "engines": {
     "vscode": "^1.90.0"
@@ -25,6 +25,19 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Folder that holds Claude Code's `.credentials.json` (Windows/Linux login). Empty uses `$CLAUDE_CONFIG_DIR`, else `~/.claude`. Supports `~`."
+        },
+        "claudeUsageStatus.alignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left",
+          "enumDescriptions": [
+            "Left side, next to the centre",
+            "Right side, next to the centre"
+          ],
+          "description": "Which side of the status bar to show usage on."
         }
       }
     }
