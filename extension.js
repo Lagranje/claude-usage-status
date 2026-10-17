@@ -26,7 +26,7 @@ function activate(context) {
 
   context.subscriptions.push(
     { dispose: () => item.dispose() },
-    vscode.commands.registerCommand('claudeUsageStatus.refresh', refresh),
+    vscode.commands.registerCommand('claudeUsageStatus.refresh', () => refresh({ isManual: true })),
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('claudeUsageStatus.alignment')) {
         createItem();
@@ -44,20 +44,23 @@ function activate(context) {
   timer = setInterval(refresh, REFRESH_MS);
 }
 
-async function refresh() {
+// A click always asks the server; timers and focus respect the 429 backoff
+async function refresh({ isManual = false } = {}) {
   if (isLoading) return;
-  // Respect server backoff after a 429
-  if (Date.now() < blockedUntil) return render(lastUsage, `rate limited, retry ${resetsIn(new Date(blockedUntil).toISOString())}`);
+  if (!isManual && Date.now() < blockedUntil) return render(lastUsage, 'rate limited, waiting to retry');
   isLoading = true;
   lastFetchAt = Date.now();
   item.text = item.text.replace('$(pulse)', '$(sync~spin)');
 
   try {
     lastUsage = await fetchUsage(await readToken());
+    blockedUntil = 0;
     updatedAt = Date.now();
     render(lastUsage);
+    if (isManual) vscode.window.setStatusBarMessage('$(check) Claude usage refreshed', 3000);
   } catch (err) {
     render(lastUsage, err.message);
+    if (isManual) vscode.window.setStatusBarMessage(`$(warning) Claude usage: ${err.message}`, 5000);
   } finally {
     isLoading = false;
     state.update('cache', { lastUsage, lastFetchAt, blockedUntil, updatedAt, plan });

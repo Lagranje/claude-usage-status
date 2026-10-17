@@ -1,8 +1,8 @@
 {
-  "name": "claude-usage-status",
+  "name": "claude-limits-status",
   "displayName": "Claude Usage Status",
-  "description": "Unofficial: Claude plan usage (5-hour and weekly) in the VS Code status bar",
-  "version": "0.1.17",
+  "description": "Claude plan usage (5-hour and weekly) in the VS Code status bar",
+  "version": "0.1.19",
   "publisher": "lagranje",
   "engines": {
     "vscode": "^1.90.0"

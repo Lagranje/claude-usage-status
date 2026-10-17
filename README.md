@@ -2,8 +2,6 @@
 
 VS Code extension that shows your Claude plan usage in the status bar.
 
-> **Unofficial.** Not affiliated with, endorsed by, or sponsored by Anthropic. "Claude" is a trademark of Anthropic, PBC.
-
 <img src="images/popup.png" alt="Usage popup" width="300">
 
 Status bar: `Claude: 25% | 27%`
@@ -70,7 +68,7 @@ Changing the setting refreshes immediately.
 
 ```sh
 npx @vscode/vsce package --allow-missing-repository --skip-license
-code --install-extension claude-usage-status-0.1.0.vsix --force
+code --install-extension claude-limits-status-<version>.vsix --force
 ```
 
 Then run **Developer: Reload Window**.
